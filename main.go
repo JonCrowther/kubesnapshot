@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 
@@ -9,6 +10,16 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 )
+
+type crtbResponse struct {
+	ApiVersion string
+	Items      []crtb
+}
+
+type crtb struct {
+	Metadata metav1.ObjectMeta
+	UserName string
+}
 
 func main() {
 	kubeconfig := flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
@@ -29,4 +40,21 @@ func main() {
 		panic(err.Error())
 	}
 	fmt.Printf("There are %d pods in the cluster\n", len(pods.Items))
+
+	clusterRoles, err := clientset.RbacV1().ClusterRoles().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		panic(err.Error())
+	}
+	fmt.Printf("There are %d cluster roles in the cluster\n", len(clusterRoles.Items))
+
+	c := crtbResponse{}
+	crtbs, err := clientset.RESTClient().Get().AbsPath("/apis/management.cattle.io/v3").Resource("clusterroletemplatebindings").DoRaw(context.TODO())
+	if err != nil {
+		panic(err.Error())
+	}
+	err = json.Unmarshal(crtbs, &c)
+	if err != nil {
+		panic(err.Error())
+	}
+	fmt.Println(c)
 }
